@@ -120,9 +120,9 @@ DS1307_Platform_Stop(void);
  * @param  Data: pointer to data array
  * @param  BytesCount: data size
  * @param  ACK: acknowledgement type
- *              - DS1307_ACK: Check acknowledgement for all bytes
- *              - DS1307_NACK: Don't check acknowledgement for all bytes
- *              - DS1307_LAST_NACK: Don't check acknowledgement just for last byte
+ *         - DS1307_ACK: Check acknowledgement for all bytes
+ *         - DS1307_NACK: Don't check acknowledgement for all bytes
+ *         - DS1307_LAST_NACK: Don't check acknowledgement just for last byte
  * @retval None
  */
 void
@@ -134,9 +134,9 @@ DS1307_Platform_WriteBytes(uint8_t *Data, uint8_t BytesCount, DS1307_ACK_t ACK);
  * @param  Data: pointer to data array
  * @param  BytesCount: data size
  * @param  ACK: acknowledgement type
- *              - DS1307_ACK: Check acknowledgement for all bytes
- *              - DS1307_NACK: Don't check acknowledgement for all bytes
- *              - DS1307_LAST_NACK: Don't check acknowledgement just for last byte
+ *         - DS1307_ACK: Check acknowledgement for all bytes
+ *         - DS1307_NACK: Don't check acknowledgement for all bytes
+ *         - DS1307_LAST_NACK: Don't check acknowledgement just for last byte
  * @retval None
  */
 void

@@ -153,12 +153,12 @@ DS1307_ReadRAM(uint8_t Address, uint8_t *Data, uint8_t Size);
 /**
  * @brief  Set output Wave on SQW/Out pin of DS1307  
  * @param  OutWave: where OutWave Shows different output wave states
- *                  - DS1307_OutWave_Low:    Logic level 0 on the SQW/OUT pin
- *                  - DS1307_OutWave_High:   Logic level 1 on the SQW/OUT pin
- *                  - DS1307_OutWave_1Hz:    Output wave frequency = 1Hz
- *                  - DS1307_OutWave_4KHz:   Output wave frequency = 4.096KHz
- *                  - DS1307_OutWave_8KHz:   Output wave frequency = 8.192KHz
- *                  - DS1307_OutWave_32KHz:  Output wave frequency = 32.768KHz
+ *         - DS1307_OutWave_Low:    Logic level 0 on the SQW/OUT pin
+ *         - DS1307_OutWave_High:   Logic level 1 on the SQW/OUT pin
+ *         - DS1307_OutWave_1Hz:    Output wave frequency = 1Hz
+ *         - DS1307_OutWave_4KHz:   Output wave frequency = 4.096KHz
+ *         - DS1307_OutWave_8KHz:   Output wave frequency = 8.192KHz
+ *         - DS1307_OutWave_32KHz:  Output wave frequency = 32.768KHz
  * @retval None
  */
 void
