@@ -4,10 +4,7 @@
  * @author Hossein.M (https://github.com/Hossein-M98)
  * @brief  DS1307 chip driver platform dependent part
  *         Functionalities of the this file:
- *          + Initialization the platform device to communicate with DS1307
- *          + Send START and STOP data
- *          + Send data to DS1307
- *          + Receive data from DS1307
+ *          + Initialization the platform-dependent part of handler
  **********************************************************************************
  *
  * Copyright (c) 2021 Hossein.M (MIT License)
@@ -44,6 +41,7 @@ extern "C" {
 
 /* Includes ---------------------------------------------------------------------*/
 #include <stdint.h>
+#include "DS1307.h"
 
 
 /* Functionality Options --------------------------------------------------------*/
@@ -53,36 +51,28 @@ extern "C" {
  */ 
 // #define DS1307_PLATFORM_AVR
 // #define DS1307_PLATFORM_ESP32_IDF
-
-#if defined(DS1307_PLATFORM_ESP32_IDF)
-/**
- * @brief  Specify I2C options of ESP32
- */
-#define DS1307_I2C_Num      1
-#define DS1307_I2C_Rate     100000
-#define DS1307_SCL_GPIO     22
-#define DS1307_SDA_GPIO     21
-#endif
+// #define DS1307_PLATFORM_STM32_HAL
 
 #if defined(DS1307_PLATFORM_AVR)
 /**
  * @brief  Specify I2C options of AVR
  */
 #define DS1307_CPU_CLK      8000000UL
+#elif defined(DS1307_PLATFORM_ESP32_IDF)
+/**
+ * @brief  Specify I2C options of ESP32
+ */
+#define DS1307_I2C_NUM      1
+#define DS1307_I2C_RATE     100000
+#define DS1307_SCL_GPIO     22
+#define DS1307_SDA_GPIO     21
+#elif defined(DS1307_PLATFORM_STM32_HAL)
+/**
+ * @brief  Specify I2C options of STM32
+ */
+#define DS1307_HI2C         hi2c2
 #endif
 
-
-
-/* Exported Data Types ----------------------------------------------------------*/
-/**
- * @brief  Data type of data transform options
- */
-typedef enum
-{
-  DS1307_ACK        = 0,
-  DS1307_NACK       = 1,
-  DS1307_LAST_NACK  = 2
-} DS1307_ACK_t;
 
 
 /**
@@ -91,57 +81,8 @@ typedef enum
  ==================================================================================
  */
 
-/**
- * @brief  Initialize I2C communication with DS1307  
- * @retval None
- */
 void
-DS1307_Platform_Init(void);
-
-
-/**
- * @brief  Send START message 
- * @retval None
- */
-void
-DS1307_Platform_Start(void);
-
-
-/**
- * @brief  Send STOP message
- * @retval None
- */
-void
-DS1307_Platform_Stop(void);
-
-
-/**
- * @brief  Send Data to DS1307
- * @param  Data: pointer to data array
- * @param  BytesCount: data size
- * @param  ACK: acknowledgement type
- *         - DS1307_ACK: Check acknowledgement for all bytes
- *         - DS1307_NACK: Don't check acknowledgement for all bytes
- *         - DS1307_LAST_NACK: Don't check acknowledgement just for last byte
- * @retval None
- */
-void
-DS1307_Platform_WriteBytes(uint8_t *Data, uint8_t BytesCount, DS1307_ACK_t ACK);
-
-
-/**
- * @brief  Receive data from DS1307 
- * @param  Data: pointer to data array
- * @param  BytesCount: data size
- * @param  ACK: acknowledgement type
- *         - DS1307_ACK: Check acknowledgement for all bytes
- *         - DS1307_NACK: Don't check acknowledgement for all bytes
- *         - DS1307_LAST_NACK: Don't check acknowledgement just for last byte
- * @retval None
- */
-void
-DS1307_Platform_ReadBytes(uint8_t *Data, uint8_t BytesCount, DS1307_ACK_t ACK);
-
+DS1307_Platform_Init(DS1307_Handler_t *Handler);
 
 
 #ifdef __cplusplus

@@ -4,10 +4,7 @@
  * @author Hossein.M (https://github.com/Hossein-M98)
  * @brief  DS1307 chip driver platform dependent part
  *         Functionalities of the this file:
- *          + Initialization the platform device to communicate with DS1307
- *          + Send START and STOP data
- *          + Send data to DS1307
- *          + Receive data from DS1307
+ *          + Initialization the platform-dependent part of handler
  **********************************************************************************
  *
  * Copyright (c) 2021 Hossein.M (MIT License)
@@ -33,15 +30,17 @@
  **********************************************************************************
  */
 
-
 /* Includes ---------------------------------------------------------------------*/
 #include "DS1307_platform.h"
+
 #if defined(DS1307_PLATFORM_AVR)
 #include <avr/io.h>
 #elif defined(DS1307_PLATFORM_ESP32_IDF)
 #include "sdkconfig.h"
 #include "esp_system.h"
 #include "driver/i2c.h"
+#elif defined(DS1307_PLATFORM_STM32_HAL)
+#include "main.h"
 #endif
 
 
@@ -63,25 +62,15 @@
 #endif
 
 
-/* Private variables ------------------------------------------------------------*/
-#if defined(DS1307_PLATFORM_ESP32_IDF)
-static i2c_cmd_handle_t DS1307_i2c_cmd_handle = 0;
-#endif
-
-
 
 /**
  ==================================================================================
-                            ##### Public Functions #####                           
+                           ##### Private Functions #####                           
  ==================================================================================
  */
 
-/**
- * @brief  Initialize I2C communication with DS1307  
- * @retval None
- */
-void
-DS1307_Platform_Init(void)
+static void
+Platform_Init(void)
 {
 #if defined(DS1307_PLATFORM_AVR)
   TWBR = (uint8_t)(DS1307_CPU_CLK - 1600000) / (2 * 100000);
@@ -92,167 +81,125 @@ DS1307_Platform_Init(void)
   conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
   conf.scl_io_num = DS1307_SCL_GPIO;
   conf.scl_pullup_en = GPIO_PULLUP_DISABLE;
-  conf.master.clk_speed = DS1307_I2C_Rate;
-  i2c_param_config(DS1307_I2C_Num, &conf);
-  i2c_driver_install(DS1307_I2C_Num, conf.mode, 0, 0, 0);
+  conf.master.clk_speed = DS1307_I2C_RATE;
+  if (i2c_param_config(DS1307_I2C_NUM, &conf) != ESP_OK)
+    return;
+  i2c_driver_install(DS1307_I2C_NUM, conf.mode, 0, 0, 0);
+#elif defined(DS1307_PLATFORM_STM32_HAL)
 #endif
 }
 
 
-/**
- * @brief  Send START message 
- * @retval None
- */
-void
-DS1307_Platform_Start(void)
+static void
+Platform_DeInit(void)
 {
 #if defined(DS1307_PLATFORM_AVR)
+#elif defined(DS1307_PLATFORM_ESP32_IDF)
+  i2c_driver_delete(DS1307_I2C_NUM);
+  gpio_reset_pin(DS1307_SDA_GPIO);
+  gpio_reset_pin(DS1307_SCL_GPIO);
+#elif defined(DS1307_PLATFORM_STM32_HAL)
+#endif
+}
+
+
+static void
+Platform_Send(uint8_t Address, uint8_t *Data, uint8_t Len)
+{
+#if defined(DS1307_PLATFORM_AVR)
+  uint8_t DataCounter = 0;
+
   TWCR = _BV(TWEN) | _BV(TWSTA) | _BV(TWEA) | _BV(TWINT); // TWI enable *** acknowledge enable
   while (!CHECKBIT(TWCR, TWINT)); // wait until the process ends
+
+  TWDR = Address<<1;                  // set data in data register to sending
+  TWCR = _BV(TWEN) | _BV(TWEA) | _BV(TWINT); // TWI enable *** acknowledge enable
+  while (!CHECKBIT(TWCR, TWINT));
+
+  for (DataCounter = 0; DataCounter < Len; DataCounter++)
+  {
+    TWDR = Data[DataCounter];                  // set data in data register to sending
+    TWCR = _BV(TWEN) | _BV(TWEA) | _BV(TWINT); // TWI enable *** acknowledge enable
+    while (!CHECKBIT(TWCR, TWINT));
+  }
+  
+  TWCR = _BV(TWEN) | _BV(TWINT) | _BV(TWSTO); // send the STOP mode bit
+
 #elif defined(DS1307_PLATFORM_ESP32_IDF)
+  i2c_cmd_handle_t DS1307_i2c_cmd_handle = 0;
+  Address <<= 1;
+  Address &= 0xFE;
+
   DS1307_i2c_cmd_handle = i2c_cmd_link_create();
   i2c_master_start(DS1307_i2c_cmd_handle);
-#endif
-}
-
-/**
- * @brief  Send STOP message
- * @retval None
- */
-void
-DS1307_Platform_Stop(void)
-{
-#if defined(DS1307_PLATFORM_AVR)
-  TWCR = _BV(TWEN) | _BV(TWINT) | _BV(TWSTO); // send the STOP mode bit
-#elif defined(DS1307_PLATFORM_ESP32_IDF)
+  i2c_master_write(DS1307_i2c_cmd_handle, &Address, 1, 1);
+  i2c_master_write(DS1307_i2c_cmd_handle, Data, Len, 1);
   i2c_master_stop(DS1307_i2c_cmd_handle);
-  i2c_master_cmd_begin(DS1307_I2C_Num, DS1307_i2c_cmd_handle, 1000 / portTICK_RATE_MS);
+  i2c_master_cmd_begin(DS1307_I2C_NUM, DS1307_i2c_cmd_handle, 1000 / portTICK_RATE_MS);
   i2c_cmd_link_delete(DS1307_i2c_cmd_handle);
+#elif defined(DS1307_PLATFORM_STM32_HAL)
+  extern I2C_HandleTypeDef DS1307_HI2C;
+  Address <<= 1;
+  HAL_I2C_Master_Transmit(&DS1307_HI2C, Address, Data, Len, DS1307_TIMEOUT);
 #endif
 }
 
-
-/**
- * @brief  Send Data to DS1307
- * @param  Data: pointer to data array
- * @param  BytesCount: data size
- * @param  ACK: acknowledgement type
- *         - DS1307_ACK: Check acknowledgement for all bytes
- *         - DS1307_NACK: Don't check acknowledgement for all bytes
- *         - DS1307_LAST_NACK: Don't check acknowledgement just for last byte
- * @retval None
- */
-void
-DS1307_Platform_WriteBytes(uint8_t *Data, uint8_t BytesCount, DS1307_ACK_t ACK)
+static void
+PlatformReceive(uint8_t Address, uint8_t *Data, uint8_t Len)
 {
 #if defined(DS1307_PLATFORM_AVR)
-  uint8_t DataCounter;
+  uint8_t DataCounter = 0;
 
-  switch (ACK)
+  TWCR = _BV(TWEN) | _BV(TWSTA) | _BV(TWEA) | _BV(TWINT); // TWI enable *** acknowledge enable
+  while (!CHECKBIT(TWCR, TWINT)); // wait until the process ends
+
+  TWDR = (Address<<1) | 0x01;                  // set data in data register to sending
+  TWCR = _BV(TWEN) | _BV(TWEA) | _BV(TWINT); // TWI enable *** acknowledge enable
+  while (!CHECKBIT(TWCR, TWINT)); // wait until the process ends
+
+  for (DataCounter = 0; DataCounter < Len - 1; DataCounter++)
   {
-  case DS1307_ACK:
-  {
-    for (DataCounter = 0; DataCounter < BytesCount; DataCounter++)
-    {
-      TWDR = Data[DataCounter];  // set data in data register to sending
-      TWCR = _BV(TWEN) | _BV(TWEA) | _BV(TWINT); // TWI enable *** acknowledge enable
-      while (!CHECKBIT(TWCR, TWINT));
-    }
-    break;
-  }
-
-  case DS1307_NACK:
-  {
-    for (DataCounter = 0; DataCounter < BytesCount; DataCounter++)
-    {
-      TWDR = Data[DataCounter];  // set data in data register to sending
-      TWCR = _BV(TWEN) | _BV(TWINT); // TWI enable
-      while (!CHECKBIT(TWCR, TWINT));
-    }
-    break;
-  }
-
-  case DS1307_LAST_NACK:
-  {
-    for (DataCounter = 0; DataCounter < BytesCount-1; DataCounter++)
-    {
-      TWDR = Data[DataCounter];  // set data in data register to sending
-      TWCR = _BV(TWEN) | _BV(TWEA) | _BV(TWINT); // TWI enable *** acknowledge enable
-      while (!CHECKBIT(TWCR, TWINT));
-    }
-    TWDR = Data[DataCounter];  // set data in data register to sending
-    TWCR = _BV(TWEN) | _BV(TWINT); // TWI enable
-    while (!CHECKBIT(TWCR, TWINT));
-    break;
-  }
-
-  default:
-    break;
-  }
-#elif defined(DS1307_PLATFORM_ESP32_IDF)
-  i2c_master_write(DS1307_i2c_cmd_handle, Data, BytesCount, ACK);
-#endif
-}
-
-
-/**
- * @brief  Receive data from DS1307 
- * @param  Data: pointer to data array
- * @param  BytesCount: data size
- * @param  ACK: acknowledgement type
- *         - DS1307_ACK: Check acknowledgement for all bytes
- *         - DS1307_NACK: Don't check acknowledgement for all bytes
- *         - DS1307_LAST_NACK: Don't check acknowledgement just for last byte
- * @retval None
- */
-void
-DS1307_Platform_ReadBytes(uint8_t *Data, uint8_t BytesCount, DS1307_ACK_t ACK)
-{
-#if defined(DS1307_PLATFORM_AVR)
-  uint8_t DataCounter;
-
-  switch (ACK)
-  {
-  case DS1307_ACK:
-  {
-    for (DataCounter = 0; DataCounter < BytesCount; DataCounter++)
-    {
-      TWCR = _BV(TWEN) | _BV(TWEA) | _BV(TWINT);  // TWI enable *** acknowledge enable
-      while (!CHECKBIT(TWCR, TWINT)); // wait until the process ends
-      Data[DataCounter] = TWDR;
-    }
-    break;
-  }
-
-  case DS1307_NACK:
-  {
-    for (DataCounter = 0; DataCounter < BytesCount; DataCounter++)
-    {
-      TWCR = _BV(TWEN) | _BV(TWINT);  // TWI enable
-      while (!CHECKBIT(TWCR, TWINT)); // wait until the process ends
-      Data[DataCounter] = TWDR;
-    }
-    break;
-  }
-
-  case DS1307_LAST_NACK:
-  {
-    for (DataCounter = 0; DataCounter < BytesCount-1; DataCounter++)
-    {
-      TWCR = _BV(TWEN) | _BV(TWEA) | _BV(TWINT);  // TWI enable *** acknowledge enable
-      while (!CHECKBIT(TWCR, TWINT)); // wait until the process ends
-      Data[DataCounter] = TWDR;
-    }
-    TWCR = _BV(TWEN) | _BV(TWINT);  // TWI enable
+    TWCR = _BV(TWEN) | _BV(TWEA) | _BV(TWINT); // TWI enable *** acknowledge enable
     while (!CHECKBIT(TWCR, TWINT)); // wait until the process ends
     Data[DataCounter] = TWDR;
-    break;
   }
+  TWCR = _BV(TWEN) | _BV(TWINT); // TWI enable
+  while (!CHECKBIT(TWCR, TWINT)); // wait until the process ends
+  Data[DataCounter] = TWDR;
 
-  default:
-    break;
-  }
+  TWCR = _BV(TWEN) | _BV(TWINT) | _BV(TWSTO); // send the STOP mode bit
 #elif defined(DS1307_PLATFORM_ESP32_IDF)
-  i2c_master_read(DS1307_i2c_cmd_handle, Data, BytesCount, ACK);
+  i2c_cmd_handle_t DS1307_i2c_cmd_handle = 0;
+  Address <<= 1;
+  Address |= 0x01;
+
+  DS1307_i2c_cmd_handle = i2c_cmd_link_create();
+  i2c_master_start(DS1307_i2c_cmd_handle);
+  i2c_master_write(DS1307_i2c_cmd_handle, &Address, 1, 1);
+  i2c_master_read(DS1307_i2c_cmd_handle, Data, Len, I2C_MASTER_LAST_NACK);
+  i2c_master_stop(DS1307_i2c_cmd_handle);
+  i2c_master_cmd_begin(DS1307_I2C_NUM, DS1307_i2c_cmd_handle, 1000 / portTICK_RATE_MS);
+  i2c_cmd_link_delete(DS1307_i2c_cmd_handle);
+#elif defined(DS1307_PLATFORM_STM32_HAL)
+  extern I2C_HandleTypeDef DS1307_HI2C;
+  Address <<= 1;
+  HAL_I2C_Master_Receive(&DS1307_HI2C, Address, Data, Len, DS1307_TIMEOUT);
 #endif
+}
+
+
+
+/**
+ ==================================================================================
+                            ##### Public Functions #####                           
+ ==================================================================================
+ */
+
+void
+DS1307_Platform_Init(DS1307_Handler_t *Handler)
+{
+  Handler->PlatformInit = Platform_Init;
+  Handler->PlatformDeInit = Platform_DeInit;
+  Handler->PlatformSend = Platform_Send;
+  Handler->PlatformReceive = PlatformReceive;
 }

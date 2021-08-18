@@ -33,14 +33,15 @@
  */
 
 /* Includes ---------------------------------------------------------------------*/
+#include <string.h>
 #include "DS1307.h"
-#include "DS1307_platform.h"
+
 
 /* Private Constants ------------------------------------------------------------*/
 /**
  * @brief  The DS1307 Address on I2C BUS
  */ 
-#define DS1307_ADDRESS  0xD0
+#define DS1307_ADDRESS  0x68
 
 /**
  * @brief  Internal Registers Address
@@ -67,6 +68,13 @@
 #define DS1307_SQWE     4
 #define DS1307_RS0      0
 #define DS1307_RS1      1
+
+
+/* Private Macro ----------------------------------------------------------------*/
+#ifndef MIN
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+
 
 /**
  ==================================================================================
@@ -95,38 +103,35 @@ DS1307_BCDtoDEC(uint8_t BCD)
 }
 
 static void
-DS1307_WriteRegs(uint8_t StartReg, uint8_t *Data, uint8_t BytesCount)
+DS1307_WriteRegs(DS1307_Handler_t *Handler,
+                 uint8_t StartReg, uint8_t *Data, uint8_t BytesCount)
 {
-  uint8_t Buffer[2];
+  uint8_t Buffer[DS1307_SEND_BUFFER_SIZE];
+  uint8_t Len = 0;
 
-  Buffer[0] = DS1307_ADDRESS; // call the DS1307 for writing
-  Buffer[1] = StartReg;       // send register address to set RTC pointer
+  Buffer[0] = StartReg; // send register address to set RTC pointer
+  while (BytesCount)
+  {
+    Len = MIN(BytesCount, sizeof(Buffer)-1);
+    memcpy((void*)(Buffer+1), (const void*)Data, Len);
 
-  DS1307_Platform_Start();
-  DS1307_Platform_WriteBytes(Buffer, 2, DS1307_ACK);
-  DS1307_Platform_WriteBytes(Data, BytesCount, DS1307_ACK);
-  DS1307_Platform_Stop();
+    Handler->PlatformSend(DS1307_ADDRESS, Buffer, Len+1);
+
+    Data += Len;
+    Buffer[0] += Len;
+    BytesCount -= Len;
+  }
 }
 
 static void
-DS1307_ReadRegs(uint8_t StartReg, uint8_t *Data, uint8_t BytesCount)
+DS1307_ReadRegs(DS1307_Handler_t *Handler,
+                uint8_t StartReg, uint8_t *Data, uint8_t BytesCount)
 {
-  uint8_t Buffer[2];
-
-  Buffer[0] = DS1307_ADDRESS; // call the DS1307 for writing
-  Buffer[1] = StartReg;       // send register address to set RTC pointer
-
-  DS1307_Platform_Start();
-  DS1307_Platform_WriteBytes(Buffer, 2, DS1307_ACK);
-  DS1307_Platform_Stop();
-
-  Buffer[0] = DS1307_ADDRESS | 0x01; // call the DS1307 for reading
-
-  DS1307_Platform_Start();
-  DS1307_Platform_WriteBytes(Buffer, 1, DS1307_ACK);
-  DS1307_Platform_ReadBytes(Data, BytesCount, DS1307_LAST_NACK);
-  DS1307_Platform_Stop();
+  Handler->PlatformSend(DS1307_ADDRESS, &StartReg, 1);
+  Handler->PlatformReceive(DS1307_ADDRESS, Data, BytesCount);
 }
+
+
 
 /**
  ==================================================================================
@@ -135,12 +140,25 @@ DS1307_ReadRegs(uint8_t StartReg, uint8_t *Data, uint8_t BytesCount)
  */
 
 /**
- * @brief  Initialize DS1307  
+ * @brief  Initialize DS1307 
+ * @param  Handler: Pointer to handler
  * @retval None
  */
-void DS1307_Init(void)
+void
+DS1307_Init(DS1307_Handler_t *Handler)
 {
-  DS1307_Platform_Init();
+  Handler->PlatformInit();
+}
+
+/**
+ * @brief  Uninitialize DS1307 
+ * @param  Handler: Pointer to handler
+ * @retval None
+ */
+void
+DS1307_DeInit(DS1307_Handler_t *Handler)
+{
+  Handler->PlatformDeInit();
 }
 
 
@@ -153,10 +171,12 @@ void DS1307_Init(void)
 
 /**
  * @brief  Set date and time on DS1307 real time chip
+ * @param  Handler: Pointer to handler
  * @param  DateTime: pointer to date and time value structure
  * @retval None
  */
-void DS1307_SetDateTime(DS1307_DateTime_t *DateTime)
+void
+DS1307_SetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime)
 {
   if (DateTime->Second > 59)
     DateTime->Second = 0;
@@ -188,20 +208,22 @@ void DS1307_SetDateTime(DS1307_DateTime_t *DateTime)
   DateTime->Month   = DS1307_DECtoBCD(DateTime->Month);
   DateTime->Year    = DS1307_DECtoBCD(DateTime->Year);
 
-  DS1307_WriteRegs(DS1307_SECOND, (uint8_t *)DateTime, 7);
+  DS1307_WriteRegs(Handler, DS1307_SECOND, (uint8_t*)DateTime, 7);
 }
 
 
 /**
  * @brief  Get date and time from DS1307 real time chip
+ * @param  Handler: Pointer to handler
  * @param  DateTime: pointer to date and time value structure
  * @retval None
  */
-void DS1307_GetDateTime(DS1307_DateTime_t *DateTime)
+void
+DS1307_GetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime)
 {
-  DS1307_ReadRegs(DS1307_SECOND, (uint8_t *)DateTime, 7);
+  DS1307_ReadRegs(Handler, DS1307_SECOND, (uint8_t*)DateTime, 7);
 
-  // convert readed BCD vlue to decimal
+  // convert BCD value to decimal
   DateTime->Second  = DS1307_BCDtoDEC(DateTime->Second & 0x7F);
   DateTime->Minute  = DS1307_BCDtoDEC(DateTime->Minute);
   DateTime->Hour    = DS1307_BCDtoDEC(DateTime->Hour);
@@ -221,37 +243,43 @@ void DS1307_GetDateTime(DS1307_DateTime_t *DateTime)
 
 /**
  * @brief  Write data on DS1307 data Non-volatile RAM
+ * @param  Handler: Pointer to handler
  * @param  Address: address of block beginning (0 to 55)
  * @param  Data: pointer to data array
  * @param  Size: data size (1 to 56)
  * @retval None
  */
-void DS1307_WriteRAM(uint8_t Address, uint8_t *Data, uint8_t Size)
+void
+DS1307_WriteRAM(DS1307_Handler_t *Handler,
+                uint8_t Address, uint8_t *Data, uint8_t Size)
 {
   Address += 8;
 
   if ((Address + Size) > 0x3f)
     Size = 0x3f - (Address + 8);
 
-  DS1307_WriteRegs(Address, Data, Size);
+  DS1307_WriteRegs(Handler, Address, Data, Size);
 }
 
 
 /**
  * @brief  Read data from DS1307 data Non-volatile RAM
+ * @param  Handler: Pointer to handler
  * @param  Address: address of block beginning (0 to 55)
  * @param  Data: pointer to data array
  * @param  Size: data size (1 to 56)
  * @retval None
  */
-void DS1307_ReadRAM(uint8_t Address, uint8_t *Data, uint8_t Size)
+void
+DS1307_ReadRAM(DS1307_Handler_t *Handler,
+               uint8_t Address, uint8_t *Data, uint8_t Size)
 {
   Address += 8;
 
   if ((Address + Size) > 0x3f)
     Size = 0x3f - (Address + 8);
 
-  DS1307_ReadRegs(Address, Data, Size);
+  DS1307_ReadRegs(Handler, Address, Data, Size);
 }
 
 
@@ -263,7 +291,8 @@ void DS1307_ReadRAM(uint8_t Address, uint8_t *Data, uint8_t Size)
  */
 
 /**
- * @brief  Set output Wave on SQW/Out pin of DS1307  
+ * @brief  Set output Wave on SQW/Out pin of DS1307
+ * @param  Handler: Pointer to handler
  * @param  OutWave: where OutWave Shows different output wave states
  *         - DS1307_OutWave_Low:    Logic level 0 on the SQW/OUT pin
  *         - DS1307_OutWave_High:   Logic level 1 on the SQW/OUT pin
@@ -273,36 +302,37 @@ void DS1307_ReadRAM(uint8_t Address, uint8_t *Data, uint8_t Size)
  *         - DS1307_OutWave_32KHz:  Output wave frequency = 32.768KHz
  * @retval None
  */
-void DS1307_SetOutWave(DS1307_OutWave_t OutWave)
+void
+DS1307_SetOutWave(DS1307_Handler_t *Handler, DS1307_OutWave_t OutWave)
 {
-  uint8_t Buffer;
+  uint8_t ControlReg;
 
   switch (OutWave)
   {
   case DS1307_OutWave_Low:
-    Buffer = 0;
+    ControlReg = 0;
     break;
 
   case DS1307_OutWave_High:
-    Buffer = (1 << DS1307_OUT);
+    ControlReg = (1 << DS1307_OUT);
     break;
 
   case DS1307_OutWave_1Hz:
-    Buffer = (1 << DS1307_SQWE);
+    ControlReg = (1 << DS1307_SQWE);
     break;
 
   case DS1307_OutWave_4KHz:
-    Buffer = (1 << DS1307_SQWE) | (1 << DS1307_RS0);
+    ControlReg = (1 << DS1307_SQWE) | (1 << DS1307_RS0);
     break;
 
   case DS1307_OutWave_8KHz:
-    Buffer = (1 << DS1307_SQWE) | (1 << DS1307_RS1);
+    ControlReg = (1 << DS1307_SQWE) | (1 << DS1307_RS1);
     break;
 
   case DS1307_OutWave_32KHz:
-    Buffer = (1 << DS1307_SQWE) | (3 << DS1307_RS0);
+    ControlReg = (1 << DS1307_SQWE) | (3 << DS1307_RS0);
     break;
   }
 
-  DS1307_WriteRegs(DS1307_CONTROL, &Buffer, 1);
+  DS1307_WriteRegs(Handler, DS1307_CONTROL, &ControlReg, 1);
 }
