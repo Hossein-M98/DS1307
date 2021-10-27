@@ -75,7 +75,7 @@ Platform_Init(void)
 #if defined(DS1307_PLATFORM_AVR)
   TWBR = (uint8_t)(DS1307_CPU_CLK - 1600000) / (2 * 100000);
 #elif defined(DS1307_PLATFORM_ESP32_IDF)
-  i2c_config_t conf;
+  i2c_config_t conf = {0};
   conf.mode = I2C_MODE_MASTER;
   conf.sda_io_num = DS1307_SDA_GPIO;
   conf.sda_pullup_en = GPIO_PULLUP_DISABLE;
