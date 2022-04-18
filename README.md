@@ -43,15 +43,15 @@ int main(void)
 
   DS1307_Platform_Init(&Handler);
   DS1307_Init(&Handler);
-  DS1307_SetDateTime(&Handler, &DataTime);
+  DS1307_SetDateTime(&Handler, &DateTime);
   DS1307_SetOutWave(&Handler, DS1307_OutWave_1Hz);
 
   while (1)
   {
-    DS1307_GetDateTime(&Handler, &DataTime);
-    printf("Date: 20%02u/%02u/%02u\r\n", DataTime.Year, DataTime.Month, DataTime.Day);
-    printf("Time: %02u:%02u:%02u\r\n", DataTime.Hour, DataTime.Minute, DataTime.Second);
-    printf("WeekDay: %u\r\n", DataTime.WeekDay);
+    DS1307_GetDateTime(&Handler, &DateTime);
+    printf("Date: 20%02u/%02u/%02u\r\n", DateTime.Year, DateTime.Month, DateTime.Day);
+    printf("Time: %02u:%02u:%02u\r\n", DateTime.Hour, DateTime.Minute, DateTime.Second);
+    printf("WeekDay: %u\r\n", DateTime.WeekDay);
   }
 
   DS1307_DeInit(&Handler);
@@ -155,15 +155,15 @@ int main(void)
   Handler.PlatformReceive = DS1307_Platform_Receive;
 
   DS1307_Init(&Handler);
-  DS1307_SetDateTime(&Handler, &DataTime);
+  DS1307_SetDateTime(&Handler, &DateTime);
   DS1307_SetOutWave(&Handler, DS1307_OutWave_1Hz);
 
   while (1)
   {
-    DS1307_GetDateTime(&Handler, &DataTime);
-    printf("Date: 20%02u/%02u/%02u\r\n", DataTime.Year, DataTime.Month, DataTime.Day);
-    printf("Time: %02u:%02u:%02u\r\n", DataTime.Hour, DataTime.Minute, DataTime.Second);
-    printf("WeekDay: %u\r\n", DataTime.WeekDay);
+    DS1307_GetDateTime(&Handler, &DateTime);
+    printf("Date: 20%02u/%02u/%02u\r\n", DateTime.Year, DateTime.Month, DateTime.Day);
+    printf("Time: %02u:%02u:%02u\r\n", DateTime.Hour, DateTime.Minute, DateTime.Second);
+    printf("WeekDay: %u\r\n", DateTime.WeekDay);
   }
 
   DS1307_DeInit(&Handler);
