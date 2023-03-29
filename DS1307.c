@@ -122,6 +122,8 @@ DS1307_WriteRegs(DS1307_Handler_t *Handler,
     Buffer[0] += Len;
     BytesCount -= Len;
   }
+
+  return 0;
 }
 
 static int8_t
@@ -133,6 +135,8 @@ DS1307_ReadRegs(DS1307_Handler_t *Handler,
 
   if (Handler->PlatformReceive(DS1307_ADDRESS, Data, BytesCount) < 0)
     return -1;
+
+  return 0;
 }
 
 
