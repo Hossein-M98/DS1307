@@ -102,7 +102,7 @@ DS1307_BCDtoDEC(uint8_t BCD)
   return DEC;
 }
 
-static void
+static int8_t
 DS1307_WriteRegs(DS1307_Handler_t *Handler,
                  uint8_t StartReg, uint8_t *Data, uint8_t BytesCount)
 {
@@ -115,7 +115,8 @@ DS1307_WriteRegs(DS1307_Handler_t *Handler,
     Len = MIN(BytesCount, sizeof(Buffer)-1);
     memcpy((void*)(Buffer+1), (const void*)Data, Len);
 
-    Handler->PlatformSend(DS1307_ADDRESS, Buffer, Len+1);
+    if (Handler->PlatformSend(DS1307_ADDRESS, Buffer, Len+1) < 0)
+      return -1;
 
     Data += Len;
     Buffer[0] += Len;
@@ -123,12 +124,15 @@ DS1307_WriteRegs(DS1307_Handler_t *Handler,
   }
 }
 
-static void
+static int8_t
 DS1307_ReadRegs(DS1307_Handler_t *Handler,
                 uint8_t StartReg, uint8_t *Data, uint8_t BytesCount)
 {
-  Handler->PlatformSend(DS1307_ADDRESS, &StartReg, 1);
-  Handler->PlatformReceive(DS1307_ADDRESS, Data, BytesCount);
+  if (Handler->PlatformSend(DS1307_ADDRESS, &StartReg, 1) < 0)
+    return -1;
+
+  if (Handler->PlatformReceive(DS1307_ADDRESS, Data, BytesCount) < 0)
+    return -1;
 }
 
 
@@ -142,23 +146,40 @@ DS1307_ReadRegs(DS1307_Handler_t *Handler,
 /**
  * @brief  Initialize DS1307 
  * @param  Handler: Pointer to handler
- * @retval None
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
+ *         - DS1307_INVALID_PARAM: One of parameters is invalid.
  */
-void
+DS1307_Result_t
 DS1307_Init(DS1307_Handler_t *Handler)
 {
-  Handler->PlatformInit();
+  if (!Handler->PlatformSend ||
+      !Handler->PlatformReceive)
+    return DS1307_INVALID_PARAM;
+
+  if (Handler->PlatformInit)
+    if (Handler->PlatformInit() < 0)
+      return DS1307_FAIL;
+
+  return DS1307_OK;
 }
 
 /**
  * @brief  Uninitialize DS1307 
  * @param  Handler: Pointer to handler
- * @retval None
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
  */
-void
+DS1307_Result_t
 DS1307_DeInit(DS1307_Handler_t *Handler)
 {
-  Handler->PlatformDeInit();
+  if (Handler->PlatformDeInit)
+    if (Handler->PlatformDeInit() < 0)
+      return DS1307_FAIL;
+
+  return DS1307_OK;
 }
 
 
@@ -173,42 +194,38 @@ DS1307_DeInit(DS1307_Handler_t *Handler)
  * @brief  Set date and time on DS1307 real time chip
  * @param  Handler: Pointer to handler
  * @param  DateTime: pointer to date and time value structure
- * @retval None
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
+ *         - DS1307_INVALID_PARAM: One of parameters is invalid.
  */
-void
+DS1307_Result_t
 DS1307_SetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime)
 {
-  if (DateTime->Second > 59)
-    DateTime->Second = 0;
+  uint8_t Buffer[7] = {0};
 
-  if (DateTime->Minute > 59)
-    DateTime->Minute = 0;
-
-  if (DateTime->Hour > 23)
-    DateTime->Hour = 0;
-
-  if (DateTime->WeekDay > 7 || DateTime->WeekDay == 0)
-    DateTime->WeekDay = 1;
-
-  if (DateTime->Day > 31 || DateTime->Day == 0)
-    DateTime->Day = 1;
-
-  if (DateTime->Month > 12 || DateTime->Month == 0)
-    DateTime->Month = 1;
-
-  if (DateTime->Year > 99)
-    DateTime->Year = 0;
+  if (DateTime->Second > 59 ||
+      DateTime->Minute > 59 ||
+      DateTime->Hour > 23 ||
+      DateTime->WeekDay > 7 || DateTime->WeekDay == 0 ||
+      DateTime->Day > 31 || DateTime->Day == 0 ||
+      DateTime->Month > 12 || DateTime->Month == 0 ||
+      DateTime->Year > 99)
+    return DS1307_INVALID_PARAM;
 
   // convert value of parameter to BCD
-  DateTime->Second  = DS1307_DECtoBCD(DateTime->Second) & 0x7F;
-  DateTime->Minute  = DS1307_DECtoBCD(DateTime->Minute);
-  DateTime->Hour    = DS1307_DECtoBCD(DateTime->Hour);
-  DateTime->WeekDay = DS1307_DECtoBCD(DateTime->WeekDay);
-  DateTime->Day     = DS1307_DECtoBCD(DateTime->Day);
-  DateTime->Month   = DS1307_DECtoBCD(DateTime->Month);
-  DateTime->Year    = DS1307_DECtoBCD(DateTime->Year);
+  Buffer[0] = DS1307_DECtoBCD(DateTime->Second) & 0x7F;
+  Buffer[1] = DS1307_DECtoBCD(DateTime->Minute);
+  Buffer[2] = DS1307_DECtoBCD(DateTime->Hour);
+  Buffer[3] = DS1307_DECtoBCD(DateTime->WeekDay);
+  Buffer[4] = DS1307_DECtoBCD(DateTime->Day);
+  Buffer[5] = DS1307_DECtoBCD(DateTime->Month);
+  Buffer[6] = DS1307_DECtoBCD(DateTime->Year);
 
-  DS1307_WriteRegs(Handler, DS1307_SECOND, (uint8_t*)DateTime, 7);
+  if (DS1307_WriteRegs(Handler, DS1307_SECOND, Buffer, 7) < 0)
+    return DS1307_FAIL;
+  
+  return DS1307_OK;
 }
 
 
@@ -216,21 +233,28 @@ DS1307_SetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime)
  * @brief  Get date and time from DS1307 real time chip
  * @param  Handler: Pointer to handler
  * @param  DateTime: pointer to date and time value structure
- * @retval None
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
  */
-void
+DS1307_Result_t
 DS1307_GetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime)
 {
-  DS1307_ReadRegs(Handler, DS1307_SECOND, (uint8_t*)DateTime, 7);
+  uint8_t Buffer[7] = {0};
+
+  if (DS1307_ReadRegs(Handler, DS1307_SECOND, Buffer, 7) < 0)
+    return DS1307_FAIL;
 
   // convert BCD value to decimal
-  DateTime->Second  = DS1307_BCDtoDEC(DateTime->Second & 0x7F);
-  DateTime->Minute  = DS1307_BCDtoDEC(DateTime->Minute);
-  DateTime->Hour    = DS1307_BCDtoDEC(DateTime->Hour);
-  DateTime->WeekDay = DS1307_BCDtoDEC(DateTime->WeekDay);
-  DateTime->Day     = DS1307_BCDtoDEC(DateTime->Day);
-  DateTime->Month   = DS1307_BCDtoDEC(DateTime->Month);
-  DateTime->Year    = DS1307_BCDtoDEC(DateTime->Year);
+  DateTime->Second  = DS1307_BCDtoDEC(Buffer[0] & 0x7F);
+  DateTime->Minute  = DS1307_BCDtoDEC(Buffer[1]);
+  DateTime->Hour    = DS1307_BCDtoDEC(Buffer[2]);
+  DateTime->WeekDay = DS1307_BCDtoDEC(Buffer[3]);
+  DateTime->Day     = DS1307_BCDtoDEC(Buffer[4]);
+  DateTime->Month   = DS1307_BCDtoDEC(Buffer[5]);
+  DateTime->Year    = DS1307_BCDtoDEC(Buffer[6]);
+
+  return DS1307_OK;
 }
 
 
@@ -247,18 +271,24 @@ DS1307_GetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime)
  * @param  Address: address of block beginning (0 to 55)
  * @param  Data: pointer to data array
  * @param  Size: data size (1 to 56)
- * @retval None
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
+ *         - DS1307_INVALID_PARAM: Requested area is out of range.
  */
-void
+DS1307_Result_t
 DS1307_WriteRAM(DS1307_Handler_t *Handler,
                 uint8_t Address, uint8_t *Data, uint8_t Size)
 {
   Address += 8;
 
   if ((Address + Size) > 0x3f)
-    Size = 0x3f - (Address + 8);
+    return DS1307_INVALID_PARAM;
 
-  DS1307_WriteRegs(Handler, Address, Data, Size);
+  if (DS1307_WriteRegs(Handler, Address, Data, Size) < 0)
+    return DS1307_FAIL;
+
+  return DS1307_OK;
 }
 
 
@@ -268,18 +298,24 @@ DS1307_WriteRAM(DS1307_Handler_t *Handler,
  * @param  Address: address of block beginning (0 to 55)
  * @param  Data: pointer to data array
  * @param  Size: data size (1 to 56)
- * @retval None
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
+ *         - DS1307_INVALID_PARAM: Requested area is out of range.
  */
-void
+DS1307_Result_t
 DS1307_ReadRAM(DS1307_Handler_t *Handler,
                uint8_t Address, uint8_t *Data, uint8_t Size)
 {
   Address += 8;
 
   if ((Address + Size) > 0x3f)
-    Size = 0x3f - (Address + 8);
+    return DS1307_INVALID_PARAM;
 
-  DS1307_ReadRegs(Handler, Address, Data, Size);
+  if (DS1307_ReadRegs(Handler, Address, Data, Size) < 0)
+    return DS1307_FAIL;
+
+  return DS1307_OK;
 }
 
 
@@ -300,9 +336,13 @@ DS1307_ReadRAM(DS1307_Handler_t *Handler,
  *         - DS1307_OutWave_4KHz:   Output wave frequency = 4.096KHz
  *         - DS1307_OutWave_8KHz:   Output wave frequency = 8.192KHz
  *         - DS1307_OutWave_32KHz:  Output wave frequency = 32.768KHz
- * @retval None
+ * 
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
+ *         - DS1307_INVALID_PARAM: One of parameters is invalid.
  */
-void
+DS1307_Result_t
 DS1307_SetOutWave(DS1307_Handler_t *Handler, DS1307_OutWave_t OutWave)
 {
   uint8_t ControlReg;
@@ -332,7 +372,13 @@ DS1307_SetOutWave(DS1307_Handler_t *Handler, DS1307_OutWave_t OutWave)
   case DS1307_OutWave_32KHz:
     ControlReg = (1 << DS1307_SQWE) | (3 << DS1307_RS0);
     break;
+
+  default:
+    return DS1307_INVALID_PARAM;
   }
 
-  DS1307_WriteRegs(Handler, DS1307_CONTROL, &ControlReg, 1);
+  if (DS1307_WriteRegs(Handler, DS1307_CONTROL, &ControlReg, 1) < 0)
+    return DS1307_FAIL;
+
+  return DS1307_OK;
 }

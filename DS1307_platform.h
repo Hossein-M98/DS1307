@@ -62,10 +62,10 @@ extern "C" {
 /**
  * @brief  Specify I2C options of ESP32
  */
-#define DS1307_I2C_NUM      1
+#define DS1307_I2C_NUM      I2C_NUM_1
 #define DS1307_I2C_RATE     100000
-#define DS1307_SCL_GPIO     22
-#define DS1307_SDA_GPIO     21
+#define DS1307_SCL_GPIO     GPIO_NUM_22
+#define DS1307_SDA_GPIO     GPIO_NUM_21
 #elif defined(DS1307_PLATFORM_STM32_HAL)
 /**
  * @brief  Specify I2C options of STM32
