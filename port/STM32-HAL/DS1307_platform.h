@@ -1,13 +1,13 @@
 /**
  **********************************************************************************
- * @file   DS1307_platform.c
+ * @file   DS1307_platform.h
  * @author Hossein.M (https://github.com/Hossein-M98)
  * @brief  DS1307 chip driver platform dependent part
  *         Functionalities of the this file:
  *          + Initialization the platform-dependent part of handler
  **********************************************************************************
  *
- * Copyright (c) 2021 Hossein.M (MIT License)
+ * Copyright (c) 2023 Mahda Embedded System (MIT License)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +31,7 @@
  */
 
 /* Define to prevent recursive inclusion ----------------------------------------*/
-#ifndef _DS1307_PLATFORM_H_
+#ifndef	_DS1307_PLATFORM_H_
 #define _DS1307_PLATFORM_H_
 
 #ifdef __cplusplus
@@ -40,47 +40,25 @@ extern "C" {
 
 
 /* Includes ---------------------------------------------------------------------*/
-#include <stdint.h>
 #include "DS1307.h"
 
 
 /* Functionality Options --------------------------------------------------------*/
-/**
- * @brief  Specify the target platform
- * @note   Uncomment the line below according to the target platform
- */ 
-// #define DS1307_PLATFORM_AVR
-// #define DS1307_PLATFORM_ESP32_IDF
-// #define DS1307_PLATFORM_STM32_HAL
-
-#if defined(DS1307_PLATFORM_AVR)
-/**
- * @brief  Specify I2C options of AVR
- */
-#define DS1307_CPU_CLK      8000000UL
-#elif defined(DS1307_PLATFORM_ESP32_IDF)
-/**
- * @brief  Specify I2C options of ESP32
- */
-#define DS1307_I2C_NUM      I2C_NUM_1
-#define DS1307_I2C_RATE     100000
-#define DS1307_SCL_GPIO     GPIO_NUM_22
-#define DS1307_SDA_GPIO     GPIO_NUM_21
-#elif defined(DS1307_PLATFORM_STM32_HAL)
-/**
- * @brief  Specify I2C options of STM32
- */
-#define DS1307_HI2C         hi2c2
-#endif
+#define DS1307_HI2C      hi2c2
 
 
 
 /**
  ==================================================================================
-                               ##### Functions #####                               
+                             ##### Functions #####                                 
  ==================================================================================
  */
 
+/**
+ * @brief  Initialize platform device to communicate DS1307.
+ * @param  Handler: Pointer to handler
+ * @retval None
+ */
 void
 DS1307_Platform_Init(DS1307_Handler_t *Handler);
 
@@ -89,4 +67,5 @@ DS1307_Platform_Init(DS1307_Handler_t *Handler);
 }
 #endif
 
-#endif
+
+#endif //! _DS1307_PLATFORM_H_
