@@ -11,6 +11,7 @@ It is easy to port this library to any platform. But now it is ready for use in:
 - AVR (ATmega32)
 - ESP32 (esp-idf)
 - STM32 (HAL)
+- Zynq PS side
 
 ## How To Use
 1. Add `DS1307.h` and `DS1307.c` files to your project.  It is optional to use `DS1307_platform.h` and `DS1307_platform.c` files (open and config `DS1307_platform.h` file).
