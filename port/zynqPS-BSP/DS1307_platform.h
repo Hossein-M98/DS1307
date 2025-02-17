@@ -45,8 +45,8 @@ extern "C" {
 
 
 /* Functionality Options --------------------------------------------------------*/
-#define IIC_SCLK_RATE		100000
-#define I2C_NUM_0			  0
+#define IIC_SCLK_RATE   100000
+#define I2C_NUM_0       0
 
 
 

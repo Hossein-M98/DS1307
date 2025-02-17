@@ -31,7 +31,7 @@
  */
 
 /* Define to prevent recursive inclusion ----------------------------------------*/
-#ifndef	_DS1307_PLATFORM_H_
+#ifndef _DS1307_PLATFORM_H_
 #define _DS1307_PLATFORM_H_
 
 #ifdef __cplusplus
