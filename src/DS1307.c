@@ -324,9 +324,7 @@ DS1307_GetRunHalt(DS1307_Handler_t *Handler, DS1307_RunHalt_t *RunHalt)
   if (DS1307_ReadRegs(Handler, DS1307_SECOND, Buffer, 1) < 0)
     return DS1307_FAIL;
   
-  if (RunHalt)
-    *RunHalt = (Buffer[0] & 0x80) ? DS1307_RunHalt_Halt : DS1307_RunHalt_Run;
-  
+  *RunHalt = (Buffer[0] & 0x80) ? DS1307_RunHalt_Halt : DS1307_RunHalt_Run;
   return DS1307_OK;
 }
 
