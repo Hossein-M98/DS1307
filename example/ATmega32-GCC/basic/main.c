@@ -39,22 +39,31 @@
 int main(void)
 {
   DS1307_Handler_t Handler;
-  DS1307_DateTime_t DateTime =
-  {
-    .Second   = 0,
-    .Minute   = 2,
-    .Hour     = 10,
-    .WeekDay  = 5,
-    .Day      = 23,
-    .Month    = 11,
-    .Year     = 23
-  };
+  DS1307_RunHalt_t RunHalt;
+  DS1307_DateTime_t DateTime;
 
   Retarget_Init(F_CPU, 9600);
   printf("DS1307 Driver Example\r\n\r\n");
 
   DS1307_Platform_Init(&Handler);
   DS1307_Init(&Handler);
+  DS1307_GetRunHalt(&Handler, &RunHalt);
+  if (RunHalt == DS1307_RunHalt_Run)
+  {
+    printf("Oscillator is running\r\n");
+  }
+  else
+  {
+    printf("Oscillator is halted. Setting date and time...\r\n");
+    DateTime.Second   = 0;
+    DateTime.Minute   = 18;
+    DateTime.Hour     = 0;
+    DateTime.WeekDay  = 6;
+    DateTime.Day      = 6;
+    DateTime.Month    = 2;
+    DateTime.Year     = 21;
+    DS1307_SetDateTime(&Handler, &DateTime); // This function sets the oscillator to run state.
+  }
   DS1307_SetDateTime(&Handler, &DateTime);
   DS1307_SetOutWave(&Handler, DS1307_OutWave_1Hz);
 

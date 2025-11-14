@@ -31,20 +31,28 @@ It is easy to port this library to any platform. But now it is ready for use in:
 int main(void)
 {
   DS1307_Handler_t Handler;
-  DS1307_DateTime_t DateTime =
-  {
-    .Second   = 0,
-    .Minute   = 18,
-    .Hour     = 0,
-    .WeekDay  = 6,
-    .Day      = 6,
-    .Month    = 2,
-    .Year     = 21
-  };
+  DS1307_RunHalt_t RunHalt;
+  DS1307_DateTime_t DateTime;
 
   DS1307_Platform_Init(&Handler);
   DS1307_Init(&Handler);
-  DS1307_SetDateTime(&Handler, &DateTime);
+  DS1307_GetRunHalt(&Handler, &RunHalt);
+  if (RunHalt == DS1307_RunHalt_Run)
+  {
+    printf("Oscillator is running\r\n");
+  }
+  else
+  {
+    printf("Oscillator is halted. Setting date and time...\r\n");
+    DateTime.Second   = 0;
+    DateTime.Minute   = 18;
+    DateTime.Hour     = 0;
+    DateTime.WeekDay  = 6;
+    DateTime.Day      = 6;
+    DateTime.Month    = 2;
+    DateTime.Year     = 21;
+    DS1307_SetDateTime(&Handler, &DateTime); // This function sets the oscillator to run state.
+  }
   DS1307_SetOutWave(&Handler, DS1307_OutWave_1Hz);
 
   while (1)
@@ -152,16 +160,8 @@ DS1307_Platform_Receive(uint8_t Address, uint8_t *Data, uint8_t DataLen)
 int main(void)
 {
   DS1307_Handler_t Handler;
-  DS1307_DateTime_t DateTime =
-  {
-    .Second   = 0,
-    .Minute   = 18,
-    .Hour     = 0,
-    .WeekDay  = 6,
-    .Day      = 6,
-    .Month    = 2,
-    .Year     = 21
-  };
+  DS1307_RunHalt_t RunHalt;
+  DS1307_DateTime_t DateTime;
 
   Handler.PlatformInit    = DS1307_Platform_Init;
   Handler.PlatformDeInit  = DS1307_Platform_DeInit;
@@ -169,6 +169,23 @@ int main(void)
   Handler.PlatformReceive = DS1307_Platform_Receive;
 
   DS1307_Init(&Handler);
+  DS1307_GetRunHalt(&Handler, &RunHalt);
+  if (RunHalt == DS1307_RunHalt_Run)
+  {
+    printf("Oscillator is running\r\n");
+  }
+  else
+  {
+    printf("Oscillator is halted. Setting date and time...\r\n");
+    DateTime.Second   = 0;
+    DateTime.Minute   = 18;
+    DateTime.Hour     = 0;
+    DateTime.WeekDay  = 6;
+    DateTime.Day      = 6;
+    DateTime.Month    = 2;
+    DateTime.Year     = 21;
+    DS1307_SetDateTime(&Handler, &DateTime); // This function sets the oscillator to run state.
+  }
   DS1307_SetDateTime(&Handler, &DateTime);
   DS1307_SetOutWave(&Handler, DS1307_OutWave_1Hz);
 
