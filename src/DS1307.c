@@ -195,9 +195,72 @@ DS1307_DeInit(DS1307_Handler_t *Handler)
  */
 
 /**
- * @brief  Set date and time on DS1307 real time chip
+ * @brief  Set date and time on DS1307 real time chip and Run/Halt option of
+ *         oscillator
+ * 
  * @param  Handler: Pointer to handler
- * @param  DateTime: pointer to date and time value structure
+ * @param  DateTime: Pointer to date and time value structure. If NULL, the 
+ *                   oscillator Run/Halt bit will be updated only.
+ * @param  RunHalt: Run/Halt option of oscillator
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
+ *         - DS1307_INVALID_PARAM: One of parameters is invalid.
+ */
+DS1307_Result_t
+DS1307_SetDateTimeRunHalt(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime, 
+                          DS1307_RunHalt_t RunHalt)
+{
+  uint8_t Buffer[7] = {0};
+
+  if (DateTime)
+  {
+    if (DateTime->Second > 59 ||
+        DateTime->Minute > 59 ||
+        DateTime->Hour > 23 ||
+        DateTime->WeekDay > 7 || DateTime->WeekDay == 0 ||
+        DateTime->Day > 31 || DateTime->Day == 0 ||
+        DateTime->Month > 12 || DateTime->Month == 0 ||
+        DateTime->Year > 99)
+      return DS1307_INVALID_PARAM;
+
+    // convert value of parameter to BCD
+    Buffer[0] = DS1307_DECtoBCD(DateTime->Second) & 0x7F; // clear CH bit
+    if (RunHalt == DS1307_RunHalt_Halt)
+      Buffer[0] |= 0x80; // set CH bit to halt the oscillator
+    Buffer[1] = DS1307_DECtoBCD(DateTime->Minute);
+    Buffer[2] = DS1307_DECtoBCD(DateTime->Hour);
+    Buffer[3] = DS1307_DECtoBCD(DateTime->WeekDay);
+    Buffer[4] = DS1307_DECtoBCD(DateTime->Day);
+    Buffer[5] = DS1307_DECtoBCD(DateTime->Month);
+    Buffer[6] = DS1307_DECtoBCD(DateTime->Year);
+
+    if (DS1307_WriteRegs(Handler, DS1307_SECOND, Buffer, 7) < 0)
+      return DS1307_FAIL;
+  }
+  else
+  {
+    if (DS1307_ReadRegs(Handler, DS1307_SECOND, Buffer, 1) < 0)
+      return DS1307_FAIL;
+    
+    if (RunHalt == DS1307_RunHalt_Halt)
+      Buffer[0] |= 0x80; // set CH bit to halt the oscillator
+    else
+      Buffer[0] &= 0x7F; // clear CH bit
+
+    if (DS1307_WriteRegs(Handler, DS1307_SECOND, Buffer, 1) < 0)
+      return DS1307_FAIL;
+  }
+  
+  return DS1307_OK;
+}
+
+
+/**
+ * @brief  Set date and time on DS1307 real time chip
+ * @note   This function sets the oscillator to run state.
+ * @param  Handler: Pointer to handler
+ * @param  DateTime: Pointer to date and time value structure
  * @retval DS1307_Result_t
  *         - DS1307_OK: Operation was successful.
  *         - DS1307_FAIL: Failed to send or receive data.
@@ -206,30 +269,9 @@ DS1307_DeInit(DS1307_Handler_t *Handler)
 DS1307_Result_t
 DS1307_SetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime)
 {
-  uint8_t Buffer[7] = {0};
-
-  if (DateTime->Second > 59 ||
-      DateTime->Minute > 59 ||
-      DateTime->Hour > 23 ||
-      DateTime->WeekDay > 7 || DateTime->WeekDay == 0 ||
-      DateTime->Day > 31 || DateTime->Day == 0 ||
-      DateTime->Month > 12 || DateTime->Month == 0 ||
-      DateTime->Year > 99)
+  if (!DateTime)
     return DS1307_INVALID_PARAM;
-
-  // convert value of parameter to BCD
-  Buffer[0] = DS1307_DECtoBCD(DateTime->Second) & 0x7F;
-  Buffer[1] = DS1307_DECtoBCD(DateTime->Minute);
-  Buffer[2] = DS1307_DECtoBCD(DateTime->Hour);
-  Buffer[3] = DS1307_DECtoBCD(DateTime->WeekDay);
-  Buffer[4] = DS1307_DECtoBCD(DateTime->Day);
-  Buffer[5] = DS1307_DECtoBCD(DateTime->Month);
-  Buffer[6] = DS1307_DECtoBCD(DateTime->Year);
-
-  if (DS1307_WriteRegs(Handler, DS1307_SECOND, Buffer, 7) < 0)
-    return DS1307_FAIL;
-  
-  return DS1307_OK;
+  return DS1307_SetDateTimeRunHalt(Handler, DateTime, DS1307_RunHalt_Run);
 }
 
 
@@ -258,6 +300,33 @@ DS1307_GetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime)
   DateTime->Month   = DS1307_BCDtoDEC(Buffer[5]);
   DateTime->Year    = DS1307_BCDtoDEC(Buffer[6]);
 
+  return DS1307_OK;
+}
+
+
+/**
+ * @brief  Get Run/Halt status of DS1307 oscillator
+ * @param  Handler: Pointer to handler
+ * @param  RunHalt: Pointer to Run/Halt status variable
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
+ *         - DS1307_INVALID_PARAM: One of parameters is invalid.
+ */
+DS1307_Result_t
+DS1307_GetRunHalt(DS1307_Handler_t *Handler, DS1307_RunHalt_t *RunHalt)
+{
+  uint8_t Buffer[1] = {0};
+
+  if (!RunHalt)
+    return DS1307_INVALID_PARAM;
+  
+  if (DS1307_ReadRegs(Handler, DS1307_SECOND, Buffer, 1) < 0)
+    return DS1307_FAIL;
+  
+  if (RunHalt)
+    *RunHalt = (Buffer[0] & 0x80) ? DS1307_RunHalt_Halt : DS1307_RunHalt_Run;
+  
   return DS1307_OK;
 }
 

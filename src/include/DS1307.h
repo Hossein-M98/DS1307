@@ -110,6 +110,15 @@ typedef struct DS1307_DateTime_s
 } DS1307_DateTime_t;
 
 /**
+ * @brief  Run/Halt options of oscillator
+ */
+typedef enum DS1307_RunHalt_e
+{
+  DS1307_RunHalt_Run = 0,
+  DS1307_RunHalt_Halt,
+} DS1307_RunHalt_t;
+
+/**
  * @brief  squarewave output signal options
  */
 typedef enum DS1307_OutWave_e
@@ -171,9 +180,27 @@ DS1307_DeInit(DS1307_Handler_t *Handler);
  */
 
 /**
- * @brief  Set date and time on DS1307 real time chip
+ * @brief  Set date and time on DS1307 real time chip and Run/Halt option of
+ *         oscillator
+ * 
  * @param  Handler: Pointer to handler
- * @param  DateTime: pointer to date and time value structure
+ * @param  DateTime: Pointer to date and time value structure. If NULL, the 
+ *                   oscillator Run/Halt bit will be updated only.
+ * @param  RunHalt: Run/Halt option of oscillator
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
+ *         - DS1307_INVALID_PARAM: One of parameters is invalid.
+ */
+DS1307_Result_t
+DS1307_SetDateTimeRunHalt(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime, 
+                          DS1307_RunHalt_t RunHalt);
+
+/**
+ * @brief  Set date and time on DS1307 real time chip
+ * @note   This function sets the oscillator to run state.
+ * @param  Handler: Pointer to handler
+ * @param  DateTime: Pointer to date and time value structure
  * @retval DS1307_Result_t
  *         - DS1307_OK: Operation was successful.
  *         - DS1307_FAIL: Failed to send or receive data.
@@ -194,6 +221,18 @@ DS1307_SetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime);
 DS1307_Result_t
 DS1307_GetDateTime(DS1307_Handler_t *Handler, DS1307_DateTime_t *DateTime);
 
+
+/**
+ * @brief  Get Run/Halt status of DS1307 oscillator
+ * @param  Handler: Pointer to handler
+ * @param  RunHalt: Pointer to Run/Halt status variable
+ * @retval DS1307_Result_t
+ *         - DS1307_OK: Operation was successful.
+ *         - DS1307_FAIL: Failed to send or receive data.
+ *         - DS1307_INVALID_PARAM: One of parameters is invalid.
+ */
+DS1307_Result_t
+DS1307_GetRunHalt(DS1307_Handler_t *Handler, DS1307_RunHalt_t *RunHalt);
 
 
 /**
